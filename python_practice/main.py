@@ -2,6 +2,7 @@ import gym
 import numpy as np
 import keras
 from keras import layers
+import random
 env = gym.make('CartPole-v1')
 
 
@@ -22,7 +23,8 @@ class q_function(state,action):
         action_dim = 2
         hidden_dim = 64
         lr = 0.05
-
+        # deep neural network settings
+        # 4 inputs, 2 intermediate layers with leakyrelu, final output layer
         inputs = keras.Input(shape=(4,))
         layer1 = layers.Dense(hidden_dim, activation=layers.LeakyReLU(alpha=lr))(inputs)
         layer2 = layers.Dense(hidden_dim*2, activation=layers.LeakyReLU(alpha=lr))(layer1)
@@ -34,6 +36,7 @@ class q_function(state,action):
         #practicemodel.compile(loss=keras.losses.MeanSquaredError(), optimizer='adam')
 
     def update(self,state,action,reward):
+        # Update the weights of the network given a training sample
         alpha = 0.2;
         q_function(state,action)+alpha*()
 
