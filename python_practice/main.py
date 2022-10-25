@@ -2,18 +2,13 @@ import gym
 import numpy as np
 import keras
 from keras import layers
+import tensorflow as tf
 import random
+
+
 env = gym.make('CartPole-v1')
 
-
-def action_selection():
-    if random.random() < explorationrate:
-        action = env.action_space.sample()
-    else:
-        action = np.argmax(q)
-
-
-class q_function(state,action):
+class q_function():
 # dnn approximater of physical function regarding pole balancing
 # input = cart position, cart velocity, pole angle, pole angular velocity
 # output = expected value of each action
@@ -29,38 +24,74 @@ class q_function(state,action):
         layer1 = layers.Dense(hidden_dim, activation=layers.LeakyReLU(alpha=lr))(inputs)
         layer2 = layers.Dense(hidden_dim*2, activation=layers.LeakyReLU(alpha=lr))(layer1)
         outputs = layers.Dense(2, name="predictions")(layer2)
+        # compile model
         self.practicemodel = keras.Model(inputs=inputs, outputs=outputs)
 
         self.loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-        self.optimizer = keras.optimizers.Adam(learning_rate = 0.05)
+        self.optimizer = keras.optimizers.Adam(learning_rate = lr)
         #practicemodel.compile(loss=keras.losses.MeanSquaredError(), optimizer='adam')
 
-    def update(self,state,action,reward):
+    def update(self,state,reward):
         # Update the weights of the network given a training sample
-        alpha = 0.2;
-        q_function(state,action)+alpha*()
+        #alpha = 0.2;
+        #self.practicemodel(state)+alpha*()
+        with tf.GradientTape() as tape:
+            y_pred = self.practicemodel(state,training=True)
+            loss = self.loss_fn(reward,y_pred)
+        grads = tape.gradient(loss,self.practicemodel.trainable_weights)
+        self.optimizer.apply_gradients(grads,self.practicemodel.trainable_weights)
 
-        y_pred = self.practicemodel.predict(state)
-        loss = self.loss_fn()
     def predict(self,state):
+        return self.practicemodel(state)
 
 
-
-iteration = 10000
-
-score = []
-rewardseq = np.zeros((1))
-
-env.reset()
-while not done:
-    action = action_selection()
-    next_state, reward, done, _ = env.step(action)
-    rewardseq = np.append((rewardseq),reward)
+    def action_selection(self,state):
+        explorationrate = 0.3
+        if random.random() < explorationrate:
+            action = env.action_space.sample()
+        else:
+            q_value = self.predict(state)
+            action = np.argmax(q_value)
+        return action
 
 
+# iteration = 10000
+#
+# score = []
+# rewardseq = np.zeros((1))
+#
+# env.reset()
+# while not done:
+#     action = action_selection()
+#     next_state, reward, done, _ = env.step(action)
+#     rewardseq = np.append((rewardseq),reward)
+#
+#
+#
+# score = np.sum(rewardseq)
+episodes = 150
+final = []
+memory = []
+for episode in range(episodes):
+    state = env.reset()
+    done = False
+    total = 0
+    firsttry = q_function()
 
-score = np.sum(rewardseq)
+    while not done:
+        action = firsttry.actionselection(state)
 
+        next_state,reward,done,_ = env.step(action)
+
+        total += reward
+        memory.append((state,action,next_state,reward,done))
+        q_values = firsttry.predict(state).tolist()
+
+        if done:
+            q_values[action] = reward
+            firsttry.update(state,q_values)
+
+state = next_state
 
 # agent - environment
 # action - state - reward
