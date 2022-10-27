@@ -5,6 +5,8 @@ from keras import layers
 import tensorflow as tf
 import random
 import matplotlib.pyplot as plt
+from tensorflow.python.ops.numpy_ops import np_config
+np_config.enable_numpy_behavior()
 
 def plot_res(values, title=''):
     ''' Plot the reward curve and histogram of results over time.'''
@@ -49,12 +51,12 @@ class q_function:
         hidden_dim = 64
         lr = 0.05
         self.practicemodel = keras.models.Sequential([
-            keras.layers.Dense(hidden_dim,input_dim=4, activation=layers.LeakyReLU(alpha=lr)),
+            keras.layers.Dense(hidden_dim,input_shape=(4,), activation=layers.LeakyReLU(alpha=lr)),
             keras.layers.Dense(hidden_dim, activation=layers.LeakyReLU(alpha=lr)),
             keras.layers.Dense(2,activation='sigmoid')
         ])
 
-        self.practicemodel.compile(optimizer='adam',loss='mean_squared_error',learning_rate=lr)
+        self.practicemodel.compile(optimizer='adam',loss='mean_squared_error')
         # # deep neural network settings
         # # 4 inputs, 2 intermediate layers with leakyrelu, final output layer
         # # self.practicemodel = keras.models.Sequential()
@@ -63,7 +65,7 @@ class q_function:
         # # self.practicemodel.add(layers.Dense(2))
         #
         # # inputs = keras.layers.Input(shape=(4,))
-        # layer1 = layers.Dense(hidden_dim, input_shape=(4,)activation=layers.LeakyReLU(alpha=lr))
+        # layer1 = layers.Dense(hidden_dim, input_shape=(4,),activation=layers.LeakyReLU(alpha=lr))
         # # layer1 = layers.Dense(hidden_dim, activation=layers.LeakyReLU(alpha=lr))(inputs)
         # # layer2 = layers.Dense(hidden_dim*2, activation=layers.LeakyReLU(alpha=lr))(layer1)
         # outputs = layers.Dense(units=2, activation='sigmoid', name="predictions")(layer1)
@@ -82,7 +84,7 @@ class q_function:
     def update(self,state,reward):
         # Update the weights of the network given a training sample
 
-        self.practicemodel.fit(state,)
+        self.practicemodel.fit(state,reward,epochs=1,verbose=0)
         # #alpha = 0.2;
         # #self.practicemodel(state)+alpha*()
         # with tf.GradientTape() as tape:
@@ -131,14 +133,16 @@ for episode in range(episodes):
     epsilon = 0.3
     decay = 0.99
     while not done:
+
         action = firsttry.action_selection(state,epsilon)
 
         next_state,reward,done,_ = env.step(action)
-        next_state = np.reshape(next_state,[1,4])
+        # next_state = np.reshape(next_state,[1,4])
 
         total += reward
         memory.append((state,action,next_state,reward,done))
-        q_values = firsttry.predict(state.reshape(1,4)).tolist()
+        q_values = firsttry.predict(state).tolist()
+        # q_values = firsttry.predict(state.reshape(1,4)).tolist()
 
         if done:
             q_values[action] = reward
@@ -146,6 +150,8 @@ for episode in range(episodes):
 
         state = next_state
         epsilon = max(epsilon*decay,0.01)
+
+
     final.append(total)
     plot_res(final,'firsttry')
     plt.show()
