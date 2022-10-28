@@ -123,38 +123,42 @@ class q_function:
 # score = np.sum(rewardseq)
 episodes = 150
 final = []
-memory = []
+
 firsttry = q_function()
 
 for episode in range(episodes):
     state = env.reset()
+    state = np.reshape(state,[1,4])
     done = False
     total = 0
+    memory = []
     epsilon = 0.3
     decay = 0.99
+    gamma = 0.9
     while not done:
 
         action = firsttry.action_selection(state,epsilon)
 
         next_state,reward,done,_ = env.step(action)
-        # next_state = np.reshape(next_state,[1,4])
+        next_state = np.reshape(next_state,[1,4])
 
         total += reward
         memory.append((state,action,next_state,reward,done))
-        q_values = firsttry.predict(state).tolist()
-        # q_values = firsttry.predict(state.reshape(1,4)).tolist()
-
-        if done:
-            q_values[action] = reward
-            firsttry.update(state,q_values)
 
         state = next_state
-        epsilon = max(epsilon*decay,0.01)
+        epsilon = max(epsilon * decay, 0.01)
 
+    for state,action,next_state,reward,done in memory:
+        q_values = firsttry.predict(state).numpy()
+        q_values[0][action] = reward + float(gamma * np.amax(firsttry.predict(next_state)[0]))
+        # q_values[action] = reward
+        firsttry.update(state,q_values)
 
     final.append(total)
-    plot_res(final,'firsttry')
-    plt.show()
+
+env.close()
+plot_res(final,'firsttry')
+plt.show()
 # agent - environment
 # action - state - reward
 # current state is open: markov decision
