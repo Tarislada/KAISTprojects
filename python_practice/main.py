@@ -135,6 +135,7 @@ for episode in range(episodes):
     epsilon = 0.3
     decay = 0.99
     gamma = 0.9
+    # Todo: add replay
     while not done:
 
         action = firsttry.action_selection(state,epsilon)
