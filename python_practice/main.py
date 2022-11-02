@@ -121,7 +121,7 @@ class q_function:
 #
 #
 # score = np.sum(rewardseq)
-episodes = 150
+episodes = 1000
 final = []
 
 firsttry = q_function()
@@ -135,7 +135,7 @@ for episode in range(episodes):
     epsilon = 0.3
     decay = 0.99
     gamma = 0.9
-    # Todo: add replay
+    # Todo: add replay memory
     while not done:
 
         action = firsttry.action_selection(state,epsilon)
