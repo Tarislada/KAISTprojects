@@ -54,10 +54,10 @@ class q_function:
         self.practicemodel = keras.models.Sequential([
             keras.layers.Dense(hidden_dim,input_shape=(4,), activation=layers.LeakyReLU(alpha=lr)),
             keras.layers.Dense(hidden_dim, activation=layers.LeakyReLU(alpha=lr)),
-            keras.layers.Dense(2,activation='sigmoid')
+            keras.layers.Dense(2,activation='relu')
         ])
-
-        self.practicemodel.compile(optimizer='adam',loss='mean_squared_error')
+        adam = tf.keras.optimizers.Adam(learning_rate=lr)
+        self.practicemodel.compile(optimizer=adam,loss='categorical_crossentropy')
         # # deep neural network settings
         # # 4 inputs, 2 intermediate layers with leakyrelu, final output layer
         # # self.practicemodel = keras.models.Sequential()
@@ -108,6 +108,7 @@ class q_function:
         return action
 
 
+
 # iteration = 10000
 #
 # score = []
@@ -122,7 +123,7 @@ class q_function:
 #
 #
 # score = np.sum(rewardseq)
-episodes = 300
+episodes = 200
 final = []
 
 firsttry = q_function()
@@ -137,8 +138,6 @@ for episode in range(episodes):
     done = False
     total = 0
 
-
-    # Todo: add replay memory
     while not done:
 
         action = firsttry.action_selection(state,epsilon)
@@ -153,15 +152,14 @@ for episode in range(episodes):
 
         state = next_state
 
-
-        if reward > 200:
+        if total > 200:
             done = True
 
 
     if episode > 16:
-        memorybatch = random.sample(memory,16)
-        # states = []
-        # q_values = []
+        memorybatch = random.sample(memory,len(memory)*0.5)
+    #     # states = []
+    #     # q_values = []
 
         for state,action,next_state,reward,done in memorybatch:
         # for state, action, next_state, reward, done in memory:
@@ -170,6 +168,7 @@ for episode in range(episodes):
             # states.append(state)
             # q_values.append(q_value)
             firsttry.update(state,q_value)
+
     final.append(total)
     epsilon = max(epsilon * decay, 0.01)
 
