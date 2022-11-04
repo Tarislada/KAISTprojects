@@ -6,6 +6,7 @@ import tensorflow as tf
 import random
 import matplotlib.pyplot as plt
 from tensorflow.python.ops.numpy_ops import np_config
+from collections import deque
 np_config.enable_numpy_behavior()
 
 def plot_res(values, title=''):
@@ -121,20 +122,22 @@ class q_function:
 #
 #
 # score = np.sum(rewardseq)
-episodes = 1000
+episodes = 300
 final = []
 
 firsttry = q_function()
+memory = deque(maxlen=2000)
+epsilon = 0.3
+decay = 0.99
+gamma = 0.9
 
 for episode in range(episodes):
     state = env.reset()
     state = np.reshape(state,[1,4])
     done = False
     total = 0
-    memory = []
-    epsilon = 0.3
-    decay = 0.99
-    gamma = 0.9
+
+
     # Todo: add replay memory
     while not done:
 
@@ -145,17 +148,30 @@ for episode in range(episodes):
 
         total += reward
         memory.append((state,action,next_state,reward,done))
+        # q_values = firsttry.predict(state).numpy()
+        # q_values[0][action] = reward + float(gamma * np.amax(firsttry.predict(next_state)[0]))
 
         state = next_state
-        epsilon = max(epsilon * decay, 0.01)
 
-    for state,action,next_state,reward,done in memory:
-        q_values = firsttry.predict(state).numpy()
-        q_values[0][action] = reward + float(gamma * np.amax(firsttry.predict(next_state)[0]))
-        # q_values[action] = reward
-        firsttry.update(state,q_values)
 
+        if reward > 200:
+            done = True
+
+
+    if episode > 16:
+        memorybatch = random.sample(memory,16)
+        # states = []
+        # q_values = []
+
+        for state,action,next_state,reward,done in memorybatch:
+        # for state, action, next_state, reward, done in memory:
+            q_value = firsttry.predict(state).numpy()
+            q_value[0][action] = reward + float(gamma * np.amax(firsttry.predict(next_state)[0]) * (not done))
+            # states.append(state)
+            # q_values.append(q_value)
+            firsttry.update(state,q_value)
     final.append(total)
+    epsilon = max(epsilon * decay, 0.01)
 
 env.close()
 plot_res(final,'firsttry')
