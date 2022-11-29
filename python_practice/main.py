@@ -7,6 +7,8 @@ import random
 import matplotlib.pyplot as plt
 from tensorflow.python.ops.numpy_ops import np_config
 from collections import deque
+import math
+
 np_config.enable_numpy_behavior()
 
 def plot_res(values, title=''):
@@ -50,10 +52,10 @@ class q_function:
         state_dim = 4
         action_dim = 2
         hidden_dim = 64
-        lr = 0.05
+        lr = 0.15
         self.practicemodel = keras.models.Sequential([
             keras.layers.Dense(hidden_dim,input_shape=(4,), activation=layers.LeakyReLU(alpha=lr)),
-            keras.layers.Dense(hidden_dim, activation=layers.LeakyReLU(alpha=lr)),
+            keras.layers.Dense(hidden_dim*2, activation=layers.LeakyReLU(alpha=lr)),
             keras.layers.Dense(2,activation='relu')
         ])
         adam = tf.keras.optimizers.Adam(learning_rate=lr)
@@ -85,7 +87,7 @@ class q_function:
     def update(self,state,reward):
         # Update the weights of the network given a training sample
 
-        self.practicemodel.fit(state,reward,epochs=1,verbose=0)
+        self.practicemodel.fit(state,reward,verbose=0)
         # #alpha = 0.2;
         # #self.practicemodel(state)+alpha*()
         # with tf.GradientTape() as tape:
@@ -97,7 +99,6 @@ class q_function:
     def predict(self,state):
         return self.practicemodel(state)
 
-
     def action_selection(self,state,explorationrate):
 
         if random.random() < explorationrate:
@@ -107,7 +108,7 @@ class q_function:
             action = np.argmax(q_value)
         return action
 
-
+    # def
 
 # iteration = 10000
 #
@@ -123,18 +124,20 @@ class q_function:
 #
 #
 # score = np.sum(rewardseq)
-episodes = 200
+episodes = 1000
 final = []
 
 firsttry = q_function()
 memory = deque(maxlen=2000)
-epsilon = 0.3
+epsilon = 0.4
 decay = 0.99
 gamma = 0.9
 
 for episode in range(episodes):
     state = env.reset()
     state = np.reshape(state,[1,4])
+    epsilon = max(epsilon * decay, 0.01)
+
     done = False
     total = 0
 
@@ -155,22 +158,21 @@ for episode in range(episodes):
         if total > 200:
             done = True
 
+        if episode > 16:
+            memorybatch = random.sample(memory,16)
+            # states = []
+            # q_values = []
 
-    if episode > 16:
-        memorybatch = random.sample(memory,len(memory)*0.5)
-    #     # states = []
-    #     # q_values = []
-
-        for state,action,next_state,reward,done in memorybatch:
-        # for state, action, next_state, reward, done in memory:
-            q_value = firsttry.predict(state).numpy()
-            q_value[0][action] = reward + float(gamma * np.amax(firsttry.predict(next_state)[0]) * (not done))
-            # states.append(state)
-            # q_values.append(q_value)
-            firsttry.update(state,q_value)
+            for state,action,next_state,reward,done in memorybatch:
+            # for state, action, next_state, reward, done in memory:
+                q_value = firsttry.predict(state).numpy()
+                q_value[0][action] = reward + float(gamma * np.amax(firsttry.predict(next_state)[0]) * (not done))
+                # states.append(state)
+                # q_values.append(q_value)
+                firsttry.update(state,q_value)
+        # firsttry.update(states, q_values)
 
     final.append(total)
-    epsilon = max(epsilon * decay, 0.01)
 
 env.close()
 plot_res(final,'firsttry')
