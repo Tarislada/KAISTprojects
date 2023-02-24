@@ -32,15 +32,23 @@ def cleandata(dnarray):
     scaler1 = preprocessing.StandardScaler()
     testarray_st = scaler1.fit_transform(dnarray)
 
+
+    cleaned = testarray_st
+    return cleaned
+
+def bindata(cleaned,rawlabelvec,binsize):
+
     def moving_bin(x, w):
         convolved = np.convolve(x, np.ones(w), 'valid') / w
         binned = convolved[::w]
         return binned
 
-    binned = moving_bin(testarray_st,5)
-    cleaned = binned
-    # cleaned = testarray_st
-    return cleaned
+    binned = moving_bin(cleaned, binsize)
+    binned_label = moving_bin(rawlabelvec,binsize)
+
+
+    return binned, binned_label
+
 
 def rundr_pca(testarray_st):
 
