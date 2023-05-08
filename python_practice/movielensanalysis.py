@@ -3,7 +3,10 @@ import pandas as pd
 import seaborn as sns
 from uszipcode import SearchEngine
 import plotly.express as px
-
+from scipy.spatial.distance import pdist, dice
+from sklearn.metrics import pairwise_distances
+import gower
+from sklearn.cluster import SpectralClustering
 
 search = SearchEngine()
 
@@ -134,6 +137,73 @@ px.bar(rating_by_genre_df, x='genre_', y='rating_count', height=300)
 combined_ratings_df = pd.merge(pd.merge(movies_exploded, ratings, on='movie_id'), users, on='user_id')
 combined_ratings_data = combined_ratings_df.groupby(['genre', 'gender']).agg({'rating': ['mean', 'count']}).reset_index()
 
+state_to_region = {
+    'AL': 'Southeast',
+    'AK': 'Northwest',
+    'AZ': 'West',
+    'AR': 'Southeast',
+    'CA': 'West',
+    'CO': 'West',
+    'CT': 'Northeast',
+    'DE': 'Mid-Atlantic',
+    'FL': 'Southeast',
+    'GA': 'Southeast',
+    'HI': 'West',
+    'ID': 'Northwest',
+    'IL': 'Midwest',
+    'IN': 'Midwest',
+    'IA': 'Midwest',
+    'KS': 'Midwest',
+    'KY': 'Southeast',
+    'LA': 'Southeast',
+    'ME': 'Northeast',
+    'MD': 'Mid-Atlantic',
+    'MA': 'Northeast',
+    'MI': 'Midwest',
+    'MN': 'Midwest',
+    'MS': 'Southeast',
+    'MO': 'Midwest',
+    'MT': 'Northwest',
+    'NE': 'Midwest',
+    'NV': 'West',
+    'NH': 'Northeast',
+    'NJ': 'Mid-Atlantic',
+    'NM': 'West',
+    'NY': 'Northeast',
+    'NC': 'Southeast',
+    'ND': 'Midwest',
+    'OH': 'Midwest',
+    'OK': 'Southwest',
+    'OR': 'Northwest',
+    'PA': 'Mid-Atlantic',
+    'RI': 'Northeast',
+    'SC': 'Southeast',
+    'SD': 'Midwest',
+    'TN': 'Southeast',
+    'TX': 'Southwest',
+    'UT': 'West',
+    'VT': 'Northeast',
+    'VA': 'Mid-Atlantic',
+    'WA': 'Northwest',
+    'WV': 'Mid-Atlantic',
+    'WI': 'Midwest',
+    'WY': 'West'
+}
+
+users['Region'] = users['States'].map(state_to_region)
+new_users = users.drop(columns=['zipcode','zipcode_simple','States'])
+new_users['occupation']=pd.Categorical(new_users.occupation)
+users_encoded = pd.get_dummies(new_users)
+
+dice_dist = pairwise_distances(users_encoded.values, metric='dice')
+float_cols = users_encoded.select_dtypes(include=[np.int]).columns
+users_encoded[float_cols] = users_encoded[float_cols].astype(np.float64)
+gower_dist = gower.gower_matrix(users_encoded.values)
+labels = SpectralClustering(n_clusters=5, affinity='precomputed').fit_predict(gower_dist)
+
+# Distance matrix - Dice or Gowers
+# K-medoids, hieracrchical, spectral clustering
+
 # plan for genre - 18 binaries or 4 genre variables that contain 1st~4th genre of the movie V
 # add statecode or division based on zipcode and http://www.structnet.com/instructions/zip_min_max_by_state.html V
 # add movie overall rating V
@@ -166,3 +236,4 @@ combined_ratings_data = combined_ratings_df.groupby(['genre', 'gender']).agg({'r
 # reg_encoded = pd.get_dummies(new_users['occupation'],prefix='job')
 # Collaborative filtering recommendation algorithm
 # based on KNN and Xgboost hybrid
+
