@@ -2,9 +2,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import sklearn.metrics.pairwise
 from uszipcode import SearchEngine
 import plotly.express as px
 from scipy.spatial.distance import pdist, dice
+import scipy.sparse as sparse
 from sklearn.metrics import pairwise_distances
 import gower
 from sklearn.cluster import KMeans
@@ -17,7 +19,9 @@ import altair as alt
 import altair_viewer as alt_viewer
 import plotly.express as px
 from sklearn import metrics as mt
-
+from sklearn.model_selection import train_test_split
+import xgboost as xgb
+import sklearn
 
 search = SearchEngine()
 
@@ -209,9 +213,10 @@ users_encoded_noid = users_encoded.drop('user_id',axis=1)
 
 # Creating distance matrix of user data: Gower's, Dice
 dice_dist = pairwise_distances(users_encoded.values, metric='dice')
-float_cols = users_encoded.select_dtypes(include=[np.int]).columns
+float_cols = users_encoded.select_dtypes(include=[int]).columns
 users_encoded[float_cols] = users_encoded[float_cols].astype(np.float64)
 gower_dist = gower.gower_matrix(users_encoded.values)
+user_cos = sklearn.metrics.pairwise.cosine_similarity(users_encoded.values)
 
 # Clustering using user distance matrices
 opticlabels = OPTICS(metric='precomputed').fit_predict(dice_dist)
@@ -241,11 +246,17 @@ genre_dummy = pd.get_dummies(pd.DataFrame(movies['genre'].tolist()).stack()).sum
 new_movies = pd.concat([movies[['movie_id','title','decade']],genre_dummy],axis=1)
 movie_encoded = new_movies.drop(['movie_id','title'],axis=1)
 
+# Movie distance
+movie_dice = pairwise_distances(movie_encoded.values,metric='dice')
+movie_gower = gower.gower_matrix(movie_encoded.values)
+movie_cos = sklearn.metrics.pairwise.cosine_similarity(movie_encoded.values)
+#
+
 moviesmca = mca.fit(movie_encoded)
 moviesmca.eigenvalues_summary
 movies_mca = moviesmca.transform(movie_encoded)
 fig = px.scatter_3d(mca.row_coordinates(movie_encoded))
-fig.show()
+# fig.show()
 
 
 
@@ -275,16 +286,111 @@ moviemeanmeansil = np.mean(moviemeansil,axis=1)
 moviesemmeansil = np.std(moviemeansil,axis=1) / np.sqrt(moviemeansil.shape[1])
 fig, ax = plt.subplots()
 ax.errorbar(np.arange(moviemeansil.shape[0]), moviemeanmeansil, yerr=moviesemmeansil, fmt='o', capsize=5,ls='-')
-plt.show()
+# plt.show()
 
 # the results of this shows that k-12 students are special cases - 93% contribution on 1st axis
 # the second axis is also made up of occ 19 97% - unemployed
 # third axis is ambiguous - 31% max, farmers contributing 31% of the axis
+# calculating 5 most similar users (can use any distance matrix in place of dice_dist)
+
+row_indices = ratings['user_id'].astype('category').cat.codes
+# col_indices = ratings['movie_id'].astype('category').cat.codes
+col_indices = ratings['movie_id']
+values = ratings['rating']
+csr_matrix_ratings = sparse.csr_matrix((values, (row_indices, col_indices)))
 
 
+movie_key = new_movies['movie_id']
+no_rating = np.setdiff1d(movie_key.unique(),ratings['movie_id'].unique()) # movies that are in the list, but not rated
 
+mask = ~movie_key.isin(no_rating)
+filtered = movie_key[mask].reset_index()
+
+result_user = np.empty((ratings.shape[0],5))
+result_movie = np.empty((ratings.shape[0],5))
+
+for index,row in ratings.iterrows():
+    target_movie = row['movie_id']
+    target_user = row['user_id']-1
+
+    sim_users = user_cos[target_user,:].argsort()
+    sim_users = sim_users[sim_users != target_user]
+
+    topsimratings = csr_matrix_ratings[sim_users, target_movie].data[:5]
+    # topsimratings = targetmat[targetmat != 0][0,:5]
+
+    result_user[index,:topsimratings.shape[0]] = topsimratings
+
+    movie_index = movie_key[movie_key == target_movie].index.values[0] # convert ratings_movie id to a index in movie similarity matrix
+
+    sim_movies = movie_cos[movie_index,:].argsort()
+    sim_movies = sim_movies[sim_movies != movie_index] # content of sim_movies is based on # of movies in new_movies. csr is based on rated.
+    # sim_movies.max() = 3882, not fitting into the movie_dice
+    # sim_movies = sim_movies[~ np.isin(sim_movies, no_rating)]
+
+    movie_mat = csr_matrix_ratings[target_user,sim_movies].data[:5]
+    # topmovieratings = movie_mat[movie_mat != 0][0,:5]
+
+    # result_movie[index,:] = topmovieratings
+    result_movie[index, :movie_mat.shape[0]] = movie_mat
+
+new_rating = pd.concat([ratings,pd.DataFrame(result_user,columns=["simu1", "simu2", "simu3", "simu4", "simu5"])],axis=1)
+new_rating = pd.concat([new_rating,pd.DataFrame(result_movie,columns=["simm1", "simm2", "simm3", "simm4", "simm5"])],axis=1)
+
+usr_mean_rating = ratings.groupby('user_id')['rating'].mean()
+new_rating = new_rating.merge(usr_mean_rating.rename('Umean'),left_on='user_id',right_index=True,how='left')
+new_rating = new_rating.merge(mean_rating.rename('Mmean'),left_on='movie_id',right_index=True,how='left')
+
+concatuser = users_encoded['user_id'].astype('int64')
+new_rating = new_rating.merge(concatuser,on='user_id',how='left')
+concatmovie = new_movies.drop(columns=['title'])
+new_rating = new_rating.merge(concatmovie,on='movie_id',how='left')
 #labels = SpectralClustering(n_clusters=5, affinity='precomputed',verbose=True,n_jobs=4, eigen_solver='amg',assign_labels='cluster_qr').fit_predict(gower_dist)
 
+coltochan = new_rating.columns[16:64]
+new_rating[coltochan] = new_rating[coltochan].astype('bool')
+new_rating['decade'] = new_rating['decade'].astype('int64')
+new_rating.loc[new_rating['rating']<=3, 'rating'] = 0
+new_rating.loc[new_rating['rating']>=4, 'rating'] = 1
+X_train, X_test, y_train, y_test = train_test_split(new_rating.drop(columns=['movie_id','user_id','rating']),new_rating['rating'],test_size=0.2,random_state=42)
+
+# regress_rating['rating'] = ratings['rating']
+
+xgb_regress = xgb.XGBRegressor(n_jobs=13,random_state=15,n_estimators=100)
+xgb_regress.fit(X_train, y_train-1, eval_metric = 'rmse')
+test_results = dict()
+# from the trained model, get the predictions
+y_test_pred = xgb_regress.predict(X_test)
+
+xgb_model = xgb.XGBClassifier(n_jobs=13,random_state=15,n_estimators=100)
+xgb_model.fit(X_train, y_train, eval_metric = 'auc')
+
+#dictionaries for storing train and test results
+test_results = dict()
+regress_results = dict()
+
+# from the trained model, get the predictions
+y_test_pred = xgb_model.predict(X_test)
+fpr,tpr,thres = sklearn.metrics.roc_curve(y_test,y_test_pred)
+auc = sklearn.metrics.auc(fpr,tpr)
+accuracy = sklearn.metrics.accuracy_score(y_test,y_test_pred)
+
+
+test_results = {'accuracy': accuracy, 'AUC' : auc, 'predictions' : y_test_pred}
+regress_results = {'rmse': rmse, 'mape':mape}
+
+feature_importance = xgb_model.get_score(importance_type='gain')
+features = list(feature_importance.keys())
+importance = list(feature_importance.values())
+
+# Plot the feature importance
+plt.figure(figsize=(10, 6))
+plt.barh(range(len(importance)), importance, align='center')
+plt.yticks(range(len(features)), features)
+plt.xlabel('Feature Importance')
+plt.ylabel('Features')
+plt.title('XGBoost Feature Importance')
+plt.show()
 
 # Distance matrix - Dice or Gowers V
 # K-medoids, hieracrchical, spectral clustering, hdbscan, optic
