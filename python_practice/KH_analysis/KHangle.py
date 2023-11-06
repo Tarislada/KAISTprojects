@@ -158,7 +158,20 @@ class PolarHeatmap:
         self.data['original_length'] = np.sqrt(self.data['head_x']**2 + self.data['head_y']**2)
 
         return self
-        
+
+    def _vec_btw_angles(self):
+        """
+        Calculating angle between two vectors i.e) body vec & head vec
+        """
+
+        # 
+        vec1 = (self.data['head_x'],self.data['head_y'])
+        vec2 = (self.data['body_x'],self.data['body_y'])
+        cos_theta = np.clip(np.dot(vec1,vec2)/(np.linalg(vec1) * np.linalg(vec1)),-1.0,1.0)
+        self.data['name'] = np.arccos(cos_theta)
+
+        return self
+
     def _adjust_vectors(self):
         """
         Adjust the angles and lengths based on specifications:
@@ -272,8 +285,8 @@ class PolarHeatmap:
 
 # Usage example:
 # preprocess = Preprocess(r'C:\Users\endyd\OneDrive\문서\GitHub\python_practice\KH_analysis\KH_m23_24_1mw_20Hz_target_columns2.csv')
-# preprocess.body_centered().separate_frames()
-# preprocess.seperate_conditions([5700,11100]).save_conditional_csv(['Pre_off','ON','Post_off'])
+# preprocess.body_centered().separate_frames() # 한 화면 안에 N마리 분리
+# preprocess.seperate_conditions([5700,11100]).save_conditional_csv(['Pre_off','ON','Post_off'])  # 조건 (ON-OFF)분리 후 저장
 # preprocess.save_seperate_mouse_csv((r'C:\Users\endyd\OneDrive\문서\GitHub\python_practice\KH_analysis\m23_1mw_20Hz.csv',r'C:\Users\endyd\OneDrive\문서\GitHub\python_practice\KH_analysis\m24_1mw_20Hz.csv'))
 polar_heatmap = PolarHeatmap('KH_analysis/ON.csv',bin_size=90,num_theta_bins=120)
 polar_heatmap.plot_heatmap(cmap='jet')
