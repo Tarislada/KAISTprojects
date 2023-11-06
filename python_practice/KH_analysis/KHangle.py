@@ -28,14 +28,33 @@ class Preprocess:
             center_column_y (str): column describing y coordinate of the to-be origin 
         """
         # Center data
-        self.df['vector_x'] = self.df[target_column_x]-self.df[center_column_x]
-        self.df['vector_y'] = self.df[target_column_y]-self.df[center_column_y]
+        self.df['head_x'] = self.df[target_column_x]-self.df[center_column_x]
+        self.df['head_y'] = self.df[target_column_y]-self.df[center_column_y]
 
         return self
 
-    def separate_frames(self, expected_num=2, judgement_col='vector_x'):
+    def tail_centered(self,target_column_x='body center x',target_column_y='body center y',center_column_x='tail base x',center_column_y='tail base y'):
+        """
+        Recenter the body coordinate to origin - all locomotion canceled out
+        Output in a 2D vector form 
+
+        Parameters: 
+            target_column_x (str): column describing x coordinate of the target
+            target_column_y (str): column describing y coordinate of the target
+            center_column_x (str): column describing x coordinate of the to-be origin
+            center_column_y (str): column describing y coordinate of the to-be origin 
+        """
+        # Center data
+        self.df['body_x'] = self.df[target_column_x]-self.df[center_column_x]
+        self.df['body_y'] = self.df[target_column_y]-self.df[center_column_y]
+        
+        return self
+
+
+    def separate_frames(self, expected_num=2, judgement_col='head_x'):
         """
         Separate the rows based on the specified judgement column value.
+        Seperation method for multiple subjects in the file
         
         Rows with the top N values (where N=expected_num) for the judgement column among duplicates are stored in separate dataframes.
         
@@ -64,6 +83,7 @@ class Preprocess:
     def seperate_conditions(self,cut_offs,target_df=0):
         """
         Cut File row-wise (frame-wise) to seperate conditions
+        For distinguishing on / off conditions
         
         Parameter:
             cutoffs (int): row-wise cutoff number
@@ -90,6 +110,7 @@ class Preprocess:
     def save_seperate_mouse_csv(self, filenames):
         """
         Save the dataframes to separate CSV files.
+        Save function for 'seperate_frames' method
         
         :param filenames: List of filenames for the CSVs.
         """
@@ -133,8 +154,8 @@ class PolarHeatmap:
         Calculate the original angles and lengths for each vector in the dataset with np.arctan2.
         """
         # Calculating the original angles and lengths from the x, y vectors
-        self.data['original_angle_rad'] = np.arctan2(self.data['vector_y'], self.data['vector_x'])
-        self.data['original_length'] = np.sqrt(self.data['vector_x']**2 + self.data['vector_y']**2)
+        self.data['original_angle_rad'] = np.arctan2(self.data['head_y'], self.data['head_x'])
+        self.data['original_length'] = np.sqrt(self.data['head_x']**2 + self.data['head_y']**2)
 
         return self
         
@@ -225,7 +246,7 @@ class PolarHeatmap:
             output_path (str): Path for the output CSV file.
         """
         # Selecting relevant columns and saving them to a CSV
-        # self.data[['frame', 'vector_x', 'vector_y', 'original_angle_rad', 'original_length', 
+        # self.data[['frame', 'head_x', 'head_y', 'original_angle_rad', 'original_length', 
                 #    'adjusted_angle_rad', 'adjusted_length']].to_csv(output_path, index=False)
         self.data.to_csv(output_path,index=False)
         return self
@@ -244,7 +265,7 @@ class PolarHeatmap:
             pre_reference_rows = self.data.iloc[pre_reference_rows_idx]
             
             # Save the selected rows to a CSV
-            pre_reference_rows[['frame', 'vector_x', 'vector_y', 'original_angle_rad', 'original_length', 
+            pre_reference_rows[['frame', 'head_x', 'head_y', 'original_angle_rad', 'original_length', 
                                 'adjusted_angle_rad', 'adjusted_length']].to_csv(output_path, index=False)
             return self
 
